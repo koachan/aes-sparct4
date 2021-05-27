@@ -23,18 +23,38 @@
 
 #include <string.h>
 
-#include <stdio.h>
-
 #include "aes-round.h"
 #include "ecrypt-sync.h"
 
 /* Encrypt a single block */
 static void
 aes_encrypt(ECRYPT_ctx *c, u64 output[2], u64 const input[2]) {
+    u64 tmp[2] = {
+        fxor(input[0], c->rk[0]),
+        fxor(input[1], c->rk[1]),
+    };
+
+    aesenc    (tmp, tmp, c->rk+2);
+    aesenc    (tmp, tmp, c->rk+4);
+    aesenc    (tmp, tmp, c->rk+6);
+    aesenc    (tmp, tmp, c->rk+8);
+    aesenc    (tmp, tmp, c->rk+10);
+    aesenc    (tmp, tmp, c->rk+12);
+    aesenc    (tmp, tmp, c->rk+14);
+    aesenc    (tmp, tmp, c->rk+16);
+    aesenc    (tmp, tmp, c->rk+18);
+    aesenclast(tmp, tmp, c->rk+20);
+
+    output[0] = tmp[0]; output[1] = tmp[1];
 }
 
 static void
 increment_iv(u64 iv[2]) {
+    asm ("addcc %3, 1, %1 \n\t"
+         "addxc %2, %%g0, %0"
+        : "=&r" (iv[0]), "=&r" (iv[1])
+        : "r" (iv[0]), "r" (iv[1])
+        : "cc");
 }
 
 void
@@ -48,6 +68,7 @@ ECRYPT_keysetup(ECRYPT_ctx *c, const u8 *k, u32 keysize, u32 ivsize) {
 
 void
 ECRYPT_ivsetup(ECRYPT_ctx *c, const u8 *iv) {
+    memcpy(c->iv, iv, 16);
 }
 
 void
