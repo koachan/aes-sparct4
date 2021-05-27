@@ -34,16 +34,16 @@ aes_encrypt(ECRYPT_ctx *c, u64 output[2], u64 const input[2]) {
         fxor(input[1], c->rk[1]),
     };
 
-    aesenc    (tmp, tmp, c->rk+2);
-    aesenc    (tmp, tmp, c->rk+4);
-    aesenc    (tmp, tmp, c->rk+6);
-    aesenc    (tmp, tmp, c->rk+8);
-    aesenc    (tmp, tmp, c->rk+10);
-    aesenc    (tmp, tmp, c->rk+12);
-    aesenc    (tmp, tmp, c->rk+14);
-    aesenc    (tmp, tmp, c->rk+16);
-    aesenc    (tmp, tmp, c->rk+18);
-    aesenclast(tmp, tmp, c->rk+20);
+    aes_enc     (tmp, tmp, c->rk+2);
+    aes_enc     (tmp, tmp, c->rk+4);
+    aes_enc     (tmp, tmp, c->rk+6);
+    aes_enc     (tmp, tmp, c->rk+8);
+    aes_enc     (tmp, tmp, c->rk+10);
+    aes_enc     (tmp, tmp, c->rk+12);
+    aes_enc     (tmp, tmp, c->rk+14);
+    aes_enc     (tmp, tmp, c->rk+16);
+    aes_enc     (tmp, tmp, c->rk+18);
+    aes_enc_last(tmp, tmp, c->rk+20);
 
     output[0] = tmp[0]; output[1] = tmp[1];
 }
@@ -73,4 +73,37 @@ ECRYPT_ivsetup(ECRYPT_ctx *c, const u8 *iv) {
 
 void
 ECRYPT_process_bytes(int action, ECRYPT_ctx *c, const u8 *input, u8 *output, u32 len) {
+    u32 blocks   = len >> 4;
+    u32 residual = len & 0xF;
+
+    union {
+        u8  b[16];
+        u64 x[2];
+    } iv_alias, pt_alias;
+
+    u32 i;
+    for (i = 0; i < blocks; i++) {
+        memcpy(iv_alias.b, c->iv, 16);
+        memcpy(pt_alias.b, input + i*16, 16);
+
+        aes_encrypt(c, iv_alias.x, iv_alias.x);
+        pt_alias.x[0] = fxor(pt_alias.x[0], iv_alias.x[0]);
+        pt_alias.x[1] = fxor(pt_alias.x[1], iv_alias.x[1]);
+        increment_iv(c->iv);
+
+        memcpy(output + i*16, pt_alias.b, 16);
+    }
+
+    /* Now encrypt the last block. */
+    if (!residual) return;
+
+
+    memcpy(iv_alias.b, c->iv, 16);
+    aes_encrypt(c, iv_alias.x, iv_alias.x);
+    increment_iv(c->iv);
+
+    u32 cont = i;
+    for (i = 0; i < residual; i++) {
+        output[cont++] ^= iv_alias.b[i];
+    }
 }
