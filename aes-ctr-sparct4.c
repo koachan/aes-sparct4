@@ -27,7 +27,7 @@
 #include "ecrypt-sync.h"
 
 /* Encrypt a single block */
-static void
+static inline void
 aes_encrypt(ECRYPT_ctx *c, u64 output[2], u64 const input[2]) {
     u64 tmp[2] = {
         fxor(input[0], c->rk[0]),
@@ -48,7 +48,7 @@ aes_encrypt(ECRYPT_ctx *c, u64 output[2], u64 const input[2]) {
     output[0] = tmp[0]; output[1] = tmp[1];
 }
 
-static void
+static inline void
 increment_iv(u64 iv[2]) {
     u64 l0, l1, l2, l3, l4, l5;
     u64 l6 = iv[0], l7 = iv[1];
