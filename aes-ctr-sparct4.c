@@ -50,11 +50,25 @@ aes_encrypt(ECRYPT_ctx *c, u64 output[2], u64 const input[2]) {
 
 static void
 increment_iv(u64 iv[2]) {
-    asm ("addcc %3, 1, %1 \n\t"
-         "addxc %2, %%g0, %0"
-        : "=&r" (iv[0]), "=&r" (iv[1])
-        : "r" (iv[0]), "r" (iv[1])
-        : "cc");
+    u64 l0, l1, l2, l3, l4, l5;
+    u64 l6 = iv[0], l7 = iv[1];
+    u64 *l8 = &iv[0], *l9 = &iv[1];
+
+    /* Do the addition in little-endian */
+    asm volatile ("stxa %6, [%5] #ASI_P_L \n\t"
+                  "stxa %7, [%4] #ASI_P_L \n\t"
+                  "ldx [%4], %0 \n\t"
+                  "ldx [%5], %1 \n\t"
+                  "addcc %1, 1, %3 \n\t"
+                  "addxc %0, %%g0, %2 \n\t"
+                  "stxa %2, [%9] #ASI_P_L \n\t"
+                  "stxa %3, [%8] #ASI_P_L"
+                 :"=&r" (l0), "=&r" (l1),
+                  "=&r" (l2), "=&r" (l3)
+                 :"r" (&l4), "r" (&l5),
+                  "r" (l6), "r" (l7),
+                  "r" (l8), "r" (l9)
+                 :"cc");
 }
 
 void
@@ -95,7 +109,7 @@ ECRYPT_process_bytes(int action, ECRYPT_ctx *c, const u8 *input, u8 *output, u32
         u64 x[2];
     } iv_alias, pt_alias;
 
-    u32 i;
+    u32 i = 0;
     for (i = 0; i < blocks; i++) {
         memcpy(iv_alias.b, c->iv, 16);
         memcpy(pt_alias.b, input + i*16, 16);
@@ -115,8 +129,8 @@ ECRYPT_process_bytes(int action, ECRYPT_ctx *c, const u8 *input, u8 *output, u32
     aes_encrypt(c, iv_alias.x, iv_alias.x);
     increment_iv(c->iv);
 
-    u32 cont = i;
-    for (i = 0; i < residual; i++) {
-        output[cont++] ^= iv_alias.b[i];
+    u32 cont = i*16;
+    for (i = 0; i < residual; i++, cont++) {
+        output[cont] = input[cont] ^ iv_alias.b[i];
     }
 }

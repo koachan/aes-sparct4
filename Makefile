@@ -1,7 +1,7 @@
 
-name = aes-ctr-altivec
+name = aes-ctr-sparct4
 type = sync
-std = -std=c99 -Wa,-Av9e
+std = -std=gnu99 -Wa,-Av9e
 
 srcdir = .
 root := $(shell \
