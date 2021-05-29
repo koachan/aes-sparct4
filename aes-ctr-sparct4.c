@@ -64,17 +64,31 @@ ECRYPT_init(void) {
 
 void
 ECRYPT_keysetup(ECRYPT_ctx *c, const u8 *k, u32 keysize, u32 ivsize) {
+    memcpy(c->rk, __builtin_assume_aligned(k, 16), 16);
+    aes_kexpand(c->rk+2,  0, c->rk);
+    aes_kexpand(c->rk+4,  1, c->rk+2);
+    aes_kexpand(c->rk+6,  2, c->rk+4);
+    aes_kexpand(c->rk+8,  3, c->rk+6);
+    aes_kexpand(c->rk+10, 4, c->rk+8);
+    aes_kexpand(c->rk+12, 5, c->rk+10);
+    aes_kexpand(c->rk+14, 6, c->rk+12);
+    aes_kexpand(c->rk+16, 7, c->rk+14);
+    aes_kexpand(c->rk+18, 8, c->rk+16);
+    aes_kexpand(c->rk+20, 9, c->rk+18);
 }
 
 void
 ECRYPT_ivsetup(ECRYPT_ctx *c, const u8 *iv) {
-    memcpy(c->iv, iv, 16);
+    memcpy(c->iv, __builtin_assume_aligned(iv, 16), 16);
 }
 
 void
 ECRYPT_process_bytes(int action, ECRYPT_ctx *c, const u8 *input, u8 *output, u32 len) {
     u32 blocks   = len >> 4;
     u32 residual = len & 0xF;
+
+    input  = __builtin_assume_aligned(input, 16);
+    output = __builtin_assume_aligned(output, 16);
 
     union {
         u8  b[16];
@@ -96,7 +110,6 @@ ECRYPT_process_bytes(int action, ECRYPT_ctx *c, const u8 *input, u8 *output, u32
 
     /* Now encrypt the last block. */
     if (!residual) return;
-
 
     memcpy(iv_alias.b, c->iv, 16);
     aes_encrypt(c, iv_alias.x, iv_alias.x);
